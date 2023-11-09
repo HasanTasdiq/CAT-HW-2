@@ -4,7 +4,7 @@ import  sys, string
 wordsize = 31                                        # everything is a word
 numregbits = 3                                       # actually +1, msb is indirect bit
 opcodesize = 7         
-memloadsize = 1024                                   # change this for larger programs
+memloadsize = 1024                               # change this for larger programs
 numregs = 2**numregbits
 opcposition = wordsize - (opcodesize + 1)            # shift value to position opcode
 reg1position = opcposition - (numregbits + 1)        # first register position
@@ -33,18 +33,19 @@ infile = open("in.asm", 'r')
 # Build Symbol Table
 symboltable = {}
 for line in infile.readlines():           # read our asm code
-   tokens = line.split( line.lower( ))        # tokens on each line
+   tokens = line.lower().split( )      # tokens on each line
    firsttoken = tokens[0]
    print( tokens )
+   # print('firstoken ' , [firsttoken])
    if firsttoken.isdigit():                             # if line starts with an address
        curaddr = int( tokens[0] )                      # assemble to here
        tokens = tokens[1:]
-   if firsttoken == u';':                                # skip comments
+   if firsttoken == ';':                                # skip comments
       continue
-   if firsttoken == u'go':                               # start execution here
+   if firsttoken == 'go':                               # start execution here
       startexecptr = ( int( tokens[ 1 ] ) & ((2**wordsize)-1))  # data
       continue
-   if firsttoken == u'.':
+   if firsttoken[0] == '.':
       symboltable[firsttoken] = curaddr
    curaddr = curaddr + 1
 print( "symbol table" ) 
@@ -53,7 +54,8 @@ print( "end sym table" )
 infile.close()
 infile = open("in.asm", 'r')
 for line in infile.readlines():           # read our asm code
-   tokens = line.split( line.lower( ))        # tokens on each line
+   tokens =  line.lower().split( )        # tokens on each line
+   # print('line 57 ' , tokens)
    firsttoken = tokens[0]
    if firsttoken.isdigit():                             # if line starts with an address
        curaddr = int( tokens[0] )                      # assemble to here
@@ -63,7 +65,7 @@ for line in infile.readlines():           # read our asm code
    if firsttoken == 'go':                               # start execution here
       startexecptr = ( int( tokens[ 1 ] ) & ((2**wordsize)-1))  # data
       continue
-   if firsttoken == '.':
+   if firsttoken[0] == '.':
       symaddr = symboltable[firsttoken]
       tokens = tokens[1:]
    memdata = 0                                             # build instruction step by step
