@@ -35,7 +35,9 @@ def startexechere ( p ):
 def loadmem():                                       # get binary load image
   curaddr = 0
   for line in open("a.out", 'r').readlines():
+#   for line in open("in.asm", 'r').readlines():
     token = str.split( str.lower( line ))      # first token on each line is mem word, ignore rest
+   #  print('[token]' , token)
     if ( token[ 0 ] == 'go' ):
         startexechere(  int( token[ 1 ] ) )
     else:    
@@ -49,6 +51,8 @@ def getdatamem ( a ):
     # get code memory at this address
     memval = mem[ a + reg[ dataseg ] ]
     return ( memval )
+def storedatamem(a , v):
+    mem[ a + reg[ dataseg ] ] = v
 def getregval ( r ):
     # get reg or indirect value
     if ( (r & (1<<numregbits)) == 0 ):               # not indirect
@@ -68,9 +72,9 @@ def checkres( v1, v2, res):
       return( 0 )
 def dumpstate ( d ):
     if ( d == 1 ):
-        print( reg)
+        print('reg', reg)
     elif ( d == 2 ):
-        print( mem)
+        print('mem' ,  mem)
     elif ( d == 3 ):
         print( 'clock=', clock, 'IC=', ic, 'Coderefs=', numcoderefs,'Datarefs=', numdatarefs, 'Start Time=', starttime, 'Currently=', time.time() )
 def trap ( t ):
@@ -90,7 +94,7 @@ def trap ( t ):
        if ( what == 1 ):
            a = a        #elapsed time
     return ( -1, -1 )
-    return ( rv, rl )
+   #  return ( rv, rl )
 # opcode type (1 reg, 2 reg, reg+addr, immed), mnemonic  
 opcodes = { 1: (2, 'add'), 2: ( 2, 'sub'), 
             3: (1, 'dec'), 4: ( 1, 'inc' ),
@@ -111,11 +115,15 @@ while( 1 ):
    addr   = (ir) & addmask
    ic = ic + 1
                                                     # - operand fetch
+   print('ir' , ir , 'ip' , ip , 'opcode' , opcode , 'reg1' , reg1 , 'reg2' , reg2 , 'addr' , addr , 'ic' , ic)                   
    if not (opcode in opcodes):
       tval, treg = trap(0) 
+      print('tval ' , tval)
       if (tval == -1):                              # illegal instruction
          break
    memdata = 0                                      #     contents of memory for loads
+   print('opcodes ' , opcodes)
+   print('opcode ' , opcode)
    if opcodes[ opcode ] [0] == 1:                   #     dec, inc, ret type
       operand1 = getregval( reg1 )                  #       fetch operands
    elif opcodes[ opcode ] [0] == 2:                 #     add, sub type
@@ -128,6 +136,10 @@ while( 1 ):
       break
    if (opcode == 7):                                # get data memory for loads
       memdata = getdatamem( operand2 )
+   if (opcode == 8):        
+      memdata = operand1
+      print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
+
    # execute
    if opcode == 1:                     # add
       result = (operand1 + operand2) & nummask
@@ -147,6 +159,8 @@ while( 1 ):
       result = operand1 + 1
    elif opcode == 7:                   # load
       result = memdata
+   elif opcode == 8:                   # store
+      result = memdata
    elif opcode == 9:                   # load immediate
       result = operand2
    elif opcode == 12:                  # conditional branch
@@ -165,16 +179,25 @@ while( 1 ):
         break
       reg1 = treg
       ip = operand2
+
    # write back
    if ( (opcode == 1) | (opcode == 2 ) | 
          (opcode == 3) | (opcode == 4 ) ):     # arithmetic
         reg[ reg1 ] = result
    elif ( (opcode == 7) | (opcode == 9 )):     # loads
         reg[ reg1 ] = result
-   elif (opcode == 13):                        # store return address
+   elif (opcode == 8):
+      storedatamem( operand2 ,result)
+
+   
+   elif (opcode == 13):  
+        print('13333333')                      # store return address
         reg[ reg1 ] = result
-   elif (opcode == 16):                        # store return address
+   elif (opcode == 16):    
+        print('1666666666')                      # store return address
+                            # store return address
         reg[ reg1 ] = result
+   print('final value' , getregval(reg1))
    # end of instruction loop     
 # end of execution
 

@@ -1,9 +1,9 @@
 #! python
 # (c) DL, UTA, 2009 - 2018
 import  sys, string
-wordsize = 31                                        # everything is a word
+wordsize = 24                                        # everything is a word
 numregbits = 3                                       # actually +1, msb is indirect bit
-opcodesize = 7         
+opcodesize = 5         
 memloadsize = 1024                               # change this for larger programs
 numregs = 2**numregbits
 opcposition = wordsize - (opcodesize + 1)            # shift value to position opcode
