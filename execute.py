@@ -25,6 +25,7 @@ mem = [0] * realmemsize                              # this is memory, init to 0
 reg = [0] * numregs                                  # registers
 clock = 1                                            # clock starts ticking
 ic = 0                                               # instruction count
+numMemRefs = 0                                        
 numcoderefs = 0                                      # number of times instructions read
 numdatarefs = 0                                      # number of times data read
 starttime = time.time()
@@ -44,15 +45,24 @@ def loadmem():                                       # get binary load image
         mem[ curaddr ] = int( token[ 0 ], 0 )                
         curaddr = curaddr = curaddr + 1
 def getcodemem ( a ):
+    global numMemRefs
     # get code memory at this address
     memval = mem[ a + reg[ codeseg ] ]
+    numMemRefs += 1
     return ( memval )
 def getdatamem ( a ):
+    global numMemRefs
+    
     # get code memory at this address
     memval = mem[ a + reg[ dataseg ] ]
+    numMemRefs += 1
+
     return ( memval )
 def storedatamem(a , v):
+    global numMemRefs
+    
     mem[ a + reg[ dataseg ] ] = v
+    numMemRefs += 1
 def getregval ( r ):
     # get reg or indirect value
     if ( (r & (1<<numregbits)) == 0 ):               # not indirect
@@ -108,14 +118,19 @@ ip = 0                                              # start execution at codeseg
 # while instruction is not halt
 while( 1 ):
    ir = getcodemem( ip )                            # - fetch
+   clock += 1
    ip = ip + 1
    opcode = ir >> opcposition                       # - decode
+   clock += 1
    reg1   = (ir >> reg1position) & regmask
    reg2   = (ir >> reg2position) & regmask
    addr   = (ir) & addmask
    ic = ic + 1
                                                     # - operand fetch
-   print('ir' , ir , 'ip' , ip , 'opcode' , opcode , 'reg1' , reg1 , 'reg2' , reg2 , 'addr' , addr , 'ic' , ic)                   
+   print('ir' , ir , 'ip' , ip , 'opcode' , opcode , 'reg1' , reg1 , 'reg2' , reg2 , 'addr' , addr , 'ic' , ic)  
+   # if ic %10 ==0:
+   #    print('-------10----------------')
+   #    trap(0)            
    if not (opcode in opcodes):
       tval, treg = trap(0) 
       print('tval ' , tval)
@@ -134,20 +149,24 @@ while( 1 ):
       operand2 = addr                     
    elif opcodes[ opcode ] [0] == 0:                 #     ? type
       break
+   clock += 1
    if (opcode == 7):                                # get data memory for loads
       memdata = getdatamem( operand2 )
+      clock+=1
    if (opcode == 8):        
       memdata = operand1
       print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
 
    # execute
    if opcode == 1:                     # add
+      clock += 1
       result = (operand1 + operand2) & nummask
       if ( checkres( operand1, operand2, result )):
          tval, treg = trap(1) 
          if (tval == -1):                           # overflow
             break
    elif opcode == 2:                   # sub
+      clock += 1
       result = (operand1 - operand2) & nummask
       if ( checkres( operand1, operand2, result )):
          tval, treg = trap(1) 
@@ -155,8 +174,10 @@ while( 1 ):
             break
    elif opcode == 3:                   # dec
       result = operand1 - 1
+      clock += 1
    elif opcode == 4:                   # inc
       result = operand1 + 1
+      clock += 1
    elif opcode == 7:                   # load
       result = memdata
    elif opcode == 8:                   # store
@@ -184,20 +205,28 @@ while( 1 ):
    if ( (opcode == 1) | (opcode == 2 ) | 
          (opcode == 3) | (opcode == 4 ) ):     # arithmetic
         reg[ reg1 ] = result
+        clock += 1
    elif ( (opcode == 7) | (opcode == 9 )):     # loads
         reg[ reg1 ] = result
+        clock += 1
    elif (opcode == 8):
       storedatamem( operand2 ,result)
+      clock += 1
 
    
    elif (opcode == 13):  
         print('13333333')                      # store return address
+        clock += 1
         reg[ reg1 ] = result
    elif (opcode == 16):    
         print('1666666666')                      # store return address
                             # store return address
+        clock += 1
         reg[ reg1 ] = result
-   print('final value' , getregval(reg1))
+   
+
+print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
+
    # end of instruction loop     
 # end of execution
 

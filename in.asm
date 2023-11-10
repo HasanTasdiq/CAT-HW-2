@@ -5,7 +5,7 @@
        ldi  2 .vals2     ; r4 point to first value of 2nd array
        ldi   3 .vals3     ; r1 points to the first value of the resultant array
        ldi 4 0
-.loop  ldi  4 1      ; r1 = r1 + next array value from 2nd array
+.loop  add  4 *1      ; r1 = r1 + next array value from 2nd array
        add  4 *2      ; r1 = r1 + next array value from 2nd array
        st   4 3
        inc  1
@@ -13,7 +13,7 @@
        inc  3
        dec  0
        bnz  0 .loop
-.count dw   3
+.count dw   1
 .vals1  dw   3
        dw   2
        dw   1
