@@ -154,8 +154,10 @@ while( 1 ):
       memdata = getdatamem( operand2 )
       clock+=1
    if (opcode == 8):        
-      memdata = operand1
-      print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
+      # memdata = operand1
+      operand2 = getregval(addr)
+
+      # print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
 
    # execute
    if opcode == 1:                     # add
@@ -181,7 +183,7 @@ while( 1 ):
    elif opcode == 7:                   # load
       result = memdata
    elif opcode == 8:                   # store
-      result = memdata
+      result = operand1
    elif opcode == 9:                   # load immediate
       result = operand2
    elif opcode == 12:                  # conditional branch
