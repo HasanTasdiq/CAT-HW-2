@@ -23,6 +23,8 @@ trapreglink = numregs - 3                            # store return value here
 trapval     = numregs - 4                            # pass which trap/int
 mem = [0] * realmemsize                              # this is memory, init to 0 
 reg = [0] * numregs                                  # registers
+scoreBoard = []
+predictionTable = {}
 clock = 1                                            # clock starts ticking
 ic = 0                                               # instruction count
 numMemRefs = 0                                        
@@ -87,6 +89,49 @@ def dumpstate ( d ):
         print('mem' ,  mem)
     elif ( d == 3 ):
         print( 'clock=', clock, 'IC=', ic, 'Coderefs=', numcoderefs,'Datarefs=', numdatarefs, 'Start Time=', starttime, 'Currently=', time.time() )
+def updateScoreBoard(arr):
+   global scoreBoard
+   scoreBoard.append(arr)
+
+def detectDataHazard():
+   print('----------')
+   global ic
+   global scoreBoard
+   global numregs
+   stalls = 0
+   regEntry = scoreBoard[ic -1]
+   prevRegEntry = scoreBoard[ic -2] if ic >=2 else [0] * numregs
+   prevPrevRegEntry = scoreBoard[ic -3] if ic >=3 else [0] * numregs
+
+   for i in range(numregs):
+      entry = regEntry[i]
+      print(str(entry))
+      if 'r' in  str(entry):
+         if 'w' in str(prevRegEntry[i]):
+            stalls +=2
+         if 'w' in str(prevPrevRegEntry[i]):
+            stalls +=1
+   
+   if stalls > 0:
+      print('!!!!!!!!!!!!!!!!!!!!!!!!!!! Data hazard exists !!!!!!!!!!!!!!!!!!!!!!!!!!')
+      print('Need {} stalls' , stalls)
+
+
+def detectConditionalHazard(opcode):
+   stalls = 0
+   if opcode == 12:
+      print('!!!!!!!!!!!!!!!!!!!!!!!!!!! Conditional hazard exists !!!!!!!!!!!!!!!!!!!!!!!!!!')
+      stalls += 2
+      print('Need {} stalls' , stalls)
+def updatePredictBranch(ir , guess):
+   global predictionTable
+   if ir not in predictionTable:
+      predictionTable[ir] = [guess]
+   else:
+      predictionTable[ir].append(guess)
+
+
+
 def trap ( t ):
     # unusual cases
     # trap 0 illegal instruction
@@ -117,6 +162,8 @@ loadmem()                                           # load binary executable
 ip = 0                                              # start execution at codeseg location 0
 # while instruction is not halt
 while( 1 ):
+   regEntry = [0] * numregs
+   # print('=========== ' ,codeseg , '========')
    ir = getcodemem( ip )                            # - fetch
    clock += 1
    ip = ip + 1
@@ -137,16 +184,34 @@ while( 1 ):
       if (tval == -1):                              # illegal instruction
          break
    memdata = 0                                      #     contents of memory for loads
-   print('opcodes ' , opcodes)
-   print('opcode ' , opcode)
+
    if opcodes[ opcode ] [0] == 1:                   #     dec, inc, ret type
       operand1 = getregval( reg1 )                  #       fetch operands
+      regEntry[reg1] = 'r/w'
+      if opcode == 14:
+         regEntry[reg1] = 'r'
+
    elif opcodes[ opcode ] [0] == 2:                 #     add, sub type
       operand1 = getregval( reg1 )                  #       fetch operands
+      regEntry[reg1] = 'r/w'
       operand2 = getregval( reg2 )
+      # print('in line 191 ' , reg2)
+      if ( (reg2 & (1<<numregbits)) == 0 ):
+         regEntry[reg2] = 'r'
+      else:
+         regEntry[reg2 - numregs] = 'r'
+
    elif opcodes[ opcode ] [0] == 3:                 #     ld, st, br type
       operand1 = getregval( reg1 )                  #       fetch operands
       operand2 = addr                     
+
+      if opcode == 7 or opcode == 9:
+         regEntry[reg1] = 'w'
+      elif opcode == 8:
+         regEntry[reg1] = 'r'
+      elif opcode == 13:
+         regEntry[reg1] = 'r'
+   
    elif opcodes[ opcode ] [0] == 0:                 #     ? type
       break
    clock += 1
@@ -158,7 +223,9 @@ while( 1 ):
       operand2 = getregval(addr)
 
       # print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
-
+   updateScoreBoard(regEntry)
+   detectDataHazard()
+   detectConditionalHazard(opcode)
    # execute
    if opcode == 1:                     # add
       clock += 1
@@ -188,6 +255,7 @@ while( 1 ):
       result = operand2
    elif opcode == 12:                  # conditional branch
       result = operand1
+      updatePredictBranch(ir , result!=0)
       if result != 0:
          ip = operand2
    elif opcode == 13:                  # branch and link
@@ -217,17 +285,19 @@ while( 1 ):
 
    
    elif (opcode == 13):  
-        print('13333333')                      # store return address
         clock += 1
         reg[ reg1 ] = result
    elif (opcode == 16):    
-        print('1666666666')                      # store return address
                             # store return address
         clock += 1
         reg[ reg1 ] = result
    
 
 print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
+for entry in scoreBoard:
+   print(entry)
+for entry in predictionTable:
+   print(entry , predictionTable[entry])
 
    # end of instruction loop     
 # end of execution
