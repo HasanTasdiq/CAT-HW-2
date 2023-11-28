@@ -1,6 +1,6 @@
 #! python
 # (c) DL, UTA, 2009 - 2016
-import  sys, string, time , math
+import  sys, string, time , math , random
 wordsize = 24                                        # everything is a word
 numregbits = 3                                       # actually +1, msb is indirect bit
 opcodesize = 5
@@ -37,14 +37,15 @@ L1DataCache = []
 L1InstructionCache = []
 dmL2 = (8 , 8)
 L2cache = [[None] * dmL2[0]] * dmL2[0]                             # 8*8 L2 cache with tag
-dm0 = (2 , 4)
-dm1 = (4 , 4)
-dm2 = (2 , 8)
+dm0 = [2 , 4]
+dm1 = [4 , 4]
+dm2 = [2 , 8]
 sp0 = [(2 , 2) , (2 , 2)]
 sp1 = [(4 , 2) , (4 , 4)]
-sa0 = (2 , 8)
-mode = dm0
+sa0 = [2 , 8]
+mode = dm2
 
+print('comp ee ' , dm2 is sa0)
 def startexechere ( p ):
     # start execution at this address
     reg[ codeseg ] = p    
@@ -76,8 +77,8 @@ def getdata(a):
          L2hit = True
    else:
       L1hit = True
-   # if not L1hit:
-   #    replaceL1Cache(a , val , 'instruction')   
+   if not L1hit:
+      replaceL1Cache(a , val , 'data')   
    #    if not L2hit:
    #       replaceL2cache(a , val)
    return val
@@ -101,8 +102,8 @@ def getcode(a):
    
    if not L1hit:
       replaceL1Cache(a , val , 'instruction')   
-      if not L2hit:
-         replaceL2cache(a , val)
+      # if not L2hit:
+      #    replaceL2cache(a , val)
 
    
 
@@ -117,7 +118,7 @@ def getcodemem ( a ):
     return ( memval )
 def getL1cache(a , type = ''):
    val = -1
-   if mode == dm0 or  mode == dm1 or mode == dm2:
+   if mode is dm0 or  mode is dm1 or mode is dm2:
       numOfwords = mode[0]
       numOfLines = mode[1]
 
@@ -136,7 +137,7 @@ def getL1cache(a , type = ''):
       print('line ' , line)
       if (L1cache[line][offset] is not None) and (L1cache[line][offset][1] == tag):
          val = L1cache[line][offset][0]
-   if mode == sp0 or mode == sp1:
+   if mode is sp0 or mode is sp1:
       if type == 'instruction':
          numOfwords = mode[0][0]
          numOfLines = mode[0][1]
@@ -175,18 +176,42 @@ def getL1cache(a , type = ''):
          print('line ' , line)
          if (L1DataCache[line][offset] is not None) and (L1DataCache[line][offset][1] == tag):
             val = L1DataCache[line][offset][0]
+   elif mode is sa0:
+      numOfwords = mode[0]
+      numOfLines = mode[1]
+      numOfSegments = int(numOfLines / 2)
+
+      offsetnobit = int(math.log2(numOfwords))
+      segmentnobit = int(math.log2(numOfSegments))
+
+      print('++++++= ' , offsetnobit)
+
+      offsetMask = numOfwords - 1
+      segmentMask = numOfSegments - 1
+      
+      offset = a & offsetMask
+      # line = (a >> offsetnobit) & lineMask
+      segment = (a >> offsetnobit) & segmentMask
+      tag = (a >> (offsetnobit + segmentnobit))
+      print('get sa0 offest ' , offset)
+      print('segment sa0 ' , segment)
+      lines = [l for l in range(segment * 2 , segment * 2 + 2)]
+      for line in lines:
+         if (L1cache[line][offset] is not None) and (L1cache[line][offset][1] == tag):
+            val = L1cache[line][offset][0]
+            break
    
    return val
 def replaceL1Cache(a , value , type = ''):
-   print('replaceL1 address ' , a)
-   if mode == dm0 or  mode == dm1 or mode == dm2:
+   print('replaceL1 address ' , a , mode)
+   if mode is dm0 or  mode is dm1 or mode is dm2:
       numOfwords = mode[0]
       numOfLines = mode[1]
 
       offsetnobit = int(math.log2(numOfwords))
       linenobit = int(math.log2(numOfLines))
 
-      print('++++++= ' , offsetnobit)
+      print('++++++= dm ' , offsetnobit)
 
       offsetMask = numOfwords - 1
       lineMask = numOfLines - 1
@@ -199,7 +224,7 @@ def replaceL1Cache(a , value , type = ''):
       print(tag)
 
       L1cache[line][offset ] = (value , tag)
-   elif mode == sp0 or mode == sp1:
+   elif mode is sp0 or mode is sp1:
       if type == 'instruction':
          numOfwords = mode[0][0]
          numOfLines = mode[0][1]
@@ -207,7 +232,7 @@ def replaceL1Cache(a , value , type = ''):
          offsetnobit = int(math.log2(numOfwords))
          linenobit = int(math.log2(numOfLines))
 
-         print('++++++= ' , offsetnobit)
+         print('++++++= sp' , offsetnobit)
 
          offsetMask = numOfwords - 1
          lineMask = numOfLines - 1
@@ -226,7 +251,7 @@ def replaceL1Cache(a , value , type = ''):
          offsetnobit = int(math.log2(numOfwords))
          linenobit = int(math.log2(numOfLines))
 
-         print('++++++= ' , offsetnobit)
+         print('++++++= sp ' , offsetnobit)
 
          offsetMask = numOfwords - 1
          lineMask = numOfLines - 1
@@ -234,9 +259,37 @@ def replaceL1Cache(a , value , type = ''):
          offset = a & offsetMask
          line = (a >> offsetnobit) & lineMask
          tag = (a >> (offsetnobit + linenobit))
-         print('offest ' , offset)
-         print('line ' , line)
+         print('offest sp' , offset)
+         print('line sp' , line)
          L1DataCache[line][offset ] = (value , tag)
+   elif mode is sa0:
+      numOfwords = mode[0]
+      numOfLines = mode[1]
+      numOfSegments = int(numOfLines / 2)
+
+      offsetnobit = int(math.log2(numOfwords))
+      segmentnobit = int(math.log2(numOfSegments))
+
+      print('replace sa0 ++++++= ' , offsetnobit)
+
+      offsetMask = numOfwords - 1
+      segmentMask = numOfSegments - 1
+      
+      offset = a & offsetMask
+      segment = (a >> offsetnobit) & segmentMask
+      tag = (a >> (offsetnobit + segmentnobit))
+      print('replace sa0 offest ' , offset)
+      print('replace sa0 seg ' , segment)
+      lines = [l for l in range(segment * 2 , segment * 2 + 2)]
+      replaced = False
+      for line in lines:
+         if (L1cache[line][offset] is None):
+            L1cache[line][offset] = (value , tag)
+            replaced = True
+            break
+      if not replaced:
+         randLine = lines[int(random.random()*len(lines))]
+         L1cache[randLine][offset] = (value , tag)
 
      
 def getL2cache(a):
@@ -279,9 +332,9 @@ def replaceL2cache(a , value):
    print('offest ' , offset)
    print('line ' , line)
    print('tag' , tag)
-   printL2()
+   # printL2()
    L2cache[line][offset] = (value , tag)
-   printL2()
+   # printL2()
 
 
 def getdatamem ( a ):
@@ -297,7 +350,7 @@ def storedatamem(a , v):
     
     mem[ a + reg[ dataseg ] ] = v
     numMemRefs += 1
-   #  replaceL1Cache(a , v)
+    replaceL1Cache(a , v)
    #  replaceL2cache(a , v)
 def getregval ( r ):
     # get reg or indirect value
@@ -364,18 +417,30 @@ def updatePredictBranch(ir , guess):
    else:
       predictionTable[ir].append(guess)
 def initCache():
-   if mode == dm0 or  mode == dm1 or mode == dm2:
+   if mode is dm0 or  mode is dm1 or mode is dm2 or mode is sa0:
       for line in range(mode[1]):
          entry = [] 
          for word in range(mode[0]):
             entry.append(None)
          L1cache.append(entry)
+   if mode is sp0 or mode is sp1:
+      for line in range(mode[0][1]):
+         entry = [] 
+         for word in range(mode[0][0]):
+            entry.append(None)
+         L1InstructionCache.append(entry)
+      for line in range(mode[1][1]):
+         entry = [] 
+         for word in range(mode[1][0]):
+            entry.append(None)
+         L1DataCache.append(entry)
+
    print('++++++++++++++++++cache 1 +++++++++++++=')
-   for line in range(mode[1]):
-      print(L1cache[line])
-def printL1():
-   for line in range(mode[1]):
-      print(L1cache[line])
+   # for line in range(mode[1]):
+   #    print(L1cache[line])
+def printL1(cache=L1cache):
+   for line in range(len(cache)):
+      print(cache[line])
 def printL2():
    print('-------------------l2----------------')
    for line in range(dmL2[1]):
@@ -545,8 +610,8 @@ while( 1 ):
    print('===========================================================')
    print('===========================================================')
    print('===========================================================')
-   printL2()
-   time.sleep(5)
+   printL1(L1cache)
+   # time.sleep(20)
    
 
 print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
@@ -556,8 +621,9 @@ print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
 #    print(entry , predictionTable[entry])
 
 
-printL1()
-printL2()
+printL1(L1InstructionCache)
+printL1(L1DataCache)
+# printL2()
    # end of instruction loop     
 # end of execution
 
