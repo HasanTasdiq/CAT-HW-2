@@ -32,6 +32,14 @@ numcoderefs = 0                                      # number of times instructi
 numdatarefs = 0                                      # number of times data read
 starttime = time.time()
 curtime = starttime
+L1cache = []
+dmL2 = (8 , 8)
+L2cache = [[-1] * (dmL2[0] + 1)] * dmL2[0]                             # 8*8 L2 cache with tag
+dm0 = (2 , 4)
+dm1 = (4 , 4)
+dm2 = (2 , 8)
+mode = dm0
+
 def startexechere ( p ):
     # start execution at this address
     reg[ codeseg ] = p    
@@ -46,12 +54,78 @@ def loadmem():                                       # get binary load image
     else:    
         mem[ curaddr ] = int( token[ 0 ], 0 )                
         curaddr = curaddr = curaddr + 1
+def getdata(a):
+   print('getData address ' , a)
+   val = getL1cache(a)
+   print('data val from L1 cache ' , val)
+   if val == -1:
+      val = getL2cache(a)
+      print('data val from L2 cache ' , val)
+
+      if val == -1:
+         val = getdatamem(a)
+         print('val from mem ' , val)
+
+   
+   return val
+def getcode(a):
+   print('getcode address ' , a)
+   val = getL1cache(a)
+   print('val from L1 cache ' , val)
+   if val == -1:
+      val = getL2cache(a)
+      print('val from L2 cache ' , val)
+
+      if val == -1:
+         val = getcodemem(a)
+         print('val from mem ' , val)
+
+   
+   return val
+
 def getcodemem ( a ):
     global numMemRefs
     # get code memory at this address
     memval = mem[ a + reg[ codeseg ] ]
     numMemRefs += 1
     return ( memval )
+def getL1cache(a):
+   val = -1
+   if mode == dm0 or  mode == dm1 or mode == dm2:
+      numOfwords = mode[0]
+      numOfLines = mode[1]
+
+      offsetMask = numOfwords - 1
+      lineMask = numOfLines - 1
+      
+      offest = a & offsetMask
+      line = (a >> numOfwords) & lineMask
+      tag = (a >> (numOfwords + numOfLines))
+      print('offest ' , offest)
+      print('line ' , line)
+      if not (L1cache[line][offest + 1] == -1) and (L1cache[line][0] == tag):
+         val = L1cache[line][offest + 1]
+   
+   return val
+
+def getL2cache(a):
+   val = -1
+      
+   numOfwords = dmL2[0]
+   numOfLines = dmL2[1]
+
+   offsetMask = numOfwords - 1
+   lineMask = numOfLines - 1
+      
+   offest = a & offsetMask
+   line = (a >> numOfwords) & lineMask
+   tag = (a >> (numOfwords + numOfLines))
+   if not (L2cache[line][offest + 1] == -1) and (L2cache[line][0] == tag):
+      val = L2cache[line][offest + 1]
+   
+   return val
+
+
 def getdatamem ( a ):
     global numMemRefs
     
@@ -70,7 +144,7 @@ def getregval ( r ):
     if ( (r & (1<<numregbits)) == 0 ):               # not indirect
        rval = reg[ r ] 
     else:
-       rval = getdatamem( reg[ r - numregs ] )       # indirect data with mem address
+       rval = getdata( reg[ r - numregs ] )       # indirect data with mem address
     return ( rval )
 def checkres( v1, v2, res):
     v1sign = ( v1 >> (wordsize - 1) ) & 1
@@ -129,9 +203,17 @@ def updatePredictBranch(ir , guess):
       predictionTable[ir] = [guess]
    else:
       predictionTable[ir].append(guess)
-
-
-
+def initCache():
+   if mode == dm0 or  mode == dm1 or mode == dm2:
+      for line in range(mode[1]):
+         entry = [-1]  #tag
+         for word in range(mode[0]):
+            entry.append(-1)
+         L1cache.append(entry)
+   print('++++++++++++++++++cache 1 +++++++++++++=')
+   for line in range(mode[1]):
+      print(L1cache[line])
+   
 def trap ( t ):
     # unusual cases
     # trap 0 illegal instruction
@@ -157,6 +239,7 @@ opcodes = { 1: (2, 'add'), 2: ( 2, 'sub'),
            12: (3, 'bnz'), 13: (3, 'brl'),
            14: (1, 'ret'),
            16: (3, 'int') }
+initCache()
 startexechere( 0 )                                  # start execution here if no "go"
 loadmem()                                           # load binary executable
 ip = 0                                              # start execution at codeseg location 0
@@ -164,7 +247,8 @@ ip = 0                                              # start execution at codeseg
 while( 1 ):
    regEntry = [0] * numregs
    # print('=========== ' ,codeseg , '========')
-   ir = getcodemem( ip )                            # - fetch
+   ir = getcode( ip )                            # - fetch
+   print('ir: ' , ir)
    clock += 1
    ip = ip + 1
    opcode = ir >> opcposition                       # - decode
@@ -216,7 +300,7 @@ while( 1 ):
       break
    clock += 1
    if (opcode == 7):                                # get data memory for loads
-      memdata = getdatamem( operand2 )
+      memdata = getdata( operand2 )
       clock+=1
    if (opcode == 8):        
       # memdata = operand1
