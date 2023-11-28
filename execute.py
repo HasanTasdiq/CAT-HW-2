@@ -38,7 +38,7 @@ L2cache = [[None] * (dmL2[0] + 1)] * dmL2[0]                             # 8*8 L
 dm0 = (2 , 4)
 dm1 = (4 , 4)
 dm2 = (2 , 8)
-mode = dm0
+mode = dm1
 
 def startexechere ( p ):
     # start execution at this address
@@ -202,8 +202,8 @@ def storedatamem(a , v):
     
     mem[ a + reg[ dataseg ] ] = v
     numMemRefs += 1
-    replaceL1Cache(a , v)
-    replaceL2cache(a , v)
+   #  replaceL1Cache(a , v)
+   #  replaceL2cache(a , v)
 def getregval ( r ):
     # get reg or indirect value
     if ( (r & (1<<numregbits)) == 0 ):               # not indirect
