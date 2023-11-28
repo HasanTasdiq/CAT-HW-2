@@ -33,12 +33,17 @@ numdatarefs = 0                                      # number of times data read
 starttime = time.time()
 curtime = starttime
 L1cache = []
+L1DataCache = []
+L1InstructionCache = []
 dmL2 = (8 , 8)
-L2cache = [[None] * (dmL2[0] + 1)] * dmL2[0]                             # 8*8 L2 cache with tag
+L2cache = [[None] * dmL2[0]] * dmL2[0]                             # 8*8 L2 cache with tag
 dm0 = (2 , 4)
 dm1 = (4 , 4)
 dm2 = (2 , 8)
-mode = dm1
+sp0 = [(2 , 2) , (2 , 2)]
+sp1 = [(4 , 2) , (4 , 4)]
+sa0 = (2 , 8)
+mode = dm0
 
 def startexechere ( p ):
     # start execution at this address
@@ -55,8 +60,10 @@ def loadmem():                                       # get binary load image
         mem[ curaddr ] = int( token[ 0 ], 0 )                
         curaddr = curaddr = curaddr + 1
 def getdata(a):
+   L1hit = False
+   L2hit = False
    print('getData address ' , a)
-   val = getL1cache(a)
+   val = getL1cache(a , 'data')
    print('data val from L1 cache ' , val)
    if val == -1:
       val = getL2cache(a)
@@ -65,14 +72,20 @@ def getdata(a):
       if val == -1:
          val = getdatamem(a)
          print('val from mem ' , val)
-
-   
+      else:
+         L2hit = True
+   else:
+      L1hit = True
+   # if not L1hit:
+   #    replaceL1Cache(a , val , 'instruction')   
+   #    if not L2hit:
+   #       replaceL2cache(a , val)
    return val
 def getcode(a):
    L1hit = False
    L2hit = False
    print('getcode address ' , a)
-   val = getL1cache(a)
+   val = getL1cache(a , 'instruction')
    print('val from L1 cache ' , val)
    if val == -1:
       val = getL2cache(a)
@@ -87,11 +100,11 @@ def getcode(a):
       L1hit = True
    
    if not L1hit:
-      replaceL1Cache(a , val)
-   printL1()
+      replaceL1Cache(a , val , 'instruction')   
+      if not L2hit:
+         replaceL2cache(a , val)
+
    
-   #    if not L2hit:
-   #       replaceL2cache(a , val)
 
    
    return val
@@ -102,7 +115,7 @@ def getcodemem ( a ):
     memval = mem[ a + reg[ codeseg ] ]
     numMemRefs += 1
     return ( memval )
-def getL1cache(a):
+def getL1cache(a , type = ''):
    val = -1
    if mode == dm0 or  mode == dm1 or mode == dm2:
       numOfwords = mode[0]
@@ -123,9 +136,48 @@ def getL1cache(a):
       print('line ' , line)
       if (L1cache[line][offset] is not None) and (L1cache[line][offset][1] == tag):
          val = L1cache[line][offset][0]
+   if mode == sp0 or mode == sp1:
+      if type == 'instruction':
+         numOfwords = mode[0][0]
+         numOfLines = mode[0][1]
+
+         offsetnobit = int(math.log2(numOfwords))
+         linenobit = int(math.log2(numOfLines))
+
+         print('++++++= ' , offsetnobit)
+
+         offsetMask = numOfwords - 1
+         lineMask = numOfLines - 1
+         
+         offset = a & offsetMask
+         line = (a >> offsetnobit) & lineMask
+         tag = (a >> (offsetnobit + linenobit))
+         print('offest ' , offset)
+         print('line ' , line)
+         if (L1InstructionCache[line][offset] is not None) and (L1InstructionCache[line][offset][1] == tag):
+            val = L1InstructionCache[line][offset][0]
+      if type == 'data':
+         numOfwords = mode[1][0]
+         numOfLines = mode[1][1]
+
+         offsetnobit = int(math.log2(numOfwords))
+         linenobit = int(math.log2(numOfLines))
+
+         print('++++++= ' , offsetnobit)
+
+         offsetMask = numOfwords - 1
+         lineMask = numOfLines - 1
+         
+         offset = a & offsetMask
+         line = (a >> offsetnobit) & lineMask
+         tag = (a >> (offsetnobit + linenobit))
+         print('offest ' , offset)
+         print('line ' , line)
+         if (L1DataCache[line][offset] is not None) and (L1DataCache[line][offset][1] == tag):
+            val = L1DataCache[line][offset][0]
    
    return val
-def replaceL1Cache(a , value):
+def replaceL1Cache(a , value , type = ''):
    print('replaceL1 address ' , a)
    if mode == dm0 or  mode == dm1 or mode == dm2:
       numOfwords = mode[0]
@@ -147,6 +199,45 @@ def replaceL1Cache(a , value):
       print(tag)
 
       L1cache[line][offset ] = (value , tag)
+   elif mode == sp0 or mode == sp1:
+      if type == 'instruction':
+         numOfwords = mode[0][0]
+         numOfLines = mode[0][1]
+
+         offsetnobit = int(math.log2(numOfwords))
+         linenobit = int(math.log2(numOfLines))
+
+         print('++++++= ' , offsetnobit)
+
+         offsetMask = numOfwords - 1
+         lineMask = numOfLines - 1
+         
+         offset = a & offsetMask
+         line = (a >> offsetnobit) & lineMask
+         tag = (a >> (offsetnobit + linenobit))
+         print('offest ' , offset)
+         print('line ' , line)
+         L1InstructionCache[line][offset ] = (value , tag)
+
+      if type == 'data':
+         numOfwords = mode[1][0]
+         numOfLines = mode[1][1]
+
+         offsetnobit = int(math.log2(numOfwords))
+         linenobit = int(math.log2(numOfLines))
+
+         print('++++++= ' , offsetnobit)
+
+         offsetMask = numOfwords - 1
+         lineMask = numOfLines - 1
+         
+         offset = a & offsetMask
+         line = (a >> offsetnobit) & lineMask
+         tag = (a >> (offsetnobit + linenobit))
+         print('offest ' , offset)
+         print('line ' , line)
+         L1DataCache[line][offset ] = (value , tag)
+
      
 def getL2cache(a):
    val = -1
@@ -170,14 +261,14 @@ def getL2cache(a):
    
    return val
 def replaceL2cache(a , value):
-      
+   print('replace l2 ' , a , value)
    numOfwords = dmL2[0]
    numOfLines = dmL2[1]
 
    offsetnobit = int(math.log2(numOfwords))
    linenobit = int(math.log2(numOfLines))
 
-   print('++++++= ' , offsetnobit)
+   print('++++++=replace l2 ' , offsetnobit)
 
    offsetMask = numOfwords - 1
    lineMask = numOfLines - 1
@@ -185,8 +276,12 @@ def replaceL2cache(a , value):
    offset = a & offsetMask
    line = (a >> offsetnobit) & lineMask
    tag = (a >> (offsetnobit + linenobit))
-
+   print('offest ' , offset)
+   print('line ' , line)
+   print('tag' , tag)
+   printL2()
    L2cache[line][offset] = (value , tag)
+   printL2()
 
 
 def getdatamem ( a ):
@@ -281,6 +376,10 @@ def initCache():
 def printL1():
    for line in range(mode[1]):
       print(L1cache[line])
+def printL2():
+   print('-------------------l2----------------')
+   for line in range(dmL2[1]):
+      print(L2cache[line])
    
 def trap ( t ):
     # unusual cases
@@ -446,7 +545,8 @@ while( 1 ):
    print('===========================================================')
    print('===========================================================')
    print('===========================================================')
-   # time.sleep(.1)
+   printL2()
+   time.sleep(5)
    
 
 print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
@@ -457,7 +557,7 @@ print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
 
 
 printL1()
-
+printL2()
    # end of instruction loop     
 # end of execution
 
