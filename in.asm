@@ -6,21 +6,65 @@
        ldi   3 .vals3     ; r1 points to the first value of the resultant array
        ldi 4 0
 .loop  ldi 4 0 
-       add  4 *1      ; r1 = r1 + next array value from 2nd array
-       add  4 *2      ; r1 = r1 + next array value from 2nd array
+       add  4 *1      ; r4 = r4 + next array value from 1st array
+       add  4 *2      ; r4 = r4 + next array value from 2nd array
        st   4 3
        inc  1
        inc  2
        inc  3
        dec  0
        bnz  0 .loop
-.count dw   3
+       ld 0 .count
+       ldi 1 .vals1
+       ldi 2 .vals2
+       ldi 3 .vals4
+.loop2  ldi 4 0 
+       add  4 *1      ; r4 = r4 + next array value from 1st array
+       add  4 *2      ; r4 = r4 + next array value from 2nd array
+       st   4 3
+       inc  1
+       inc  2
+       inc  3
+       dec  0
+       bnz  0 .loop2
+.count dw   10
 .vals1  dw   3
        dw   2
        dw   1
+       dw 3
+       dw 2
+       dw 1
+       dw 3
+       dw 2
+       dw 1
+       dw 90
 .vals2  dw   7
        dw   8
+       dw   9
+       dw   7
+       dw   8
+       dw   9
+       dw   7
+       dw   8
+       dw   9
        dw   9
 .vals3 dw   0
        dw   0
        dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw 0
+.vals4 dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw   0
+       dw 0

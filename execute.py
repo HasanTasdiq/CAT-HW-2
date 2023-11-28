@@ -1,6 +1,6 @@
 #! python
 # (c) DL, UTA, 2009 - 2016
-import  sys, string, time
+import  sys, string, time , math
 wordsize = 24                                        # everything is a word
 numregbits = 3                                       # actually +1, msb is indirect bit
 opcodesize = 5
@@ -34,7 +34,7 @@ starttime = time.time()
 curtime = starttime
 L1cache = []
 dmL2 = (8 , 8)
-L2cache = [[-1] * (dmL2[0] + 1)] * dmL2[0]                             # 8*8 L2 cache with tag
+L2cache = [[None] * (dmL2[0] + 1)] * dmL2[0]                             # 8*8 L2 cache with tag
 dm0 = (2 , 4)
 dm1 = (4 , 4)
 dm2 = (2 , 8)
@@ -69,6 +69,8 @@ def getdata(a):
    
    return val
 def getcode(a):
+   L1hit = False
+   L2hit = False
    print('getcode address ' , a)
    val = getL1cache(a)
    print('val from L1 cache ' , val)
@@ -79,6 +81,17 @@ def getcode(a):
       if val == -1:
          val = getcodemem(a)
          print('val from mem ' , val)
+      else:
+         L2hit = True
+   else:
+      L1hit = True
+   
+   if not L1hit:
+      replaceL1Cache(a , val)
+   printL1()
+   
+   #    if not L2hit:
+   #       replaceL2cache(a , val)
 
    
    return val
@@ -95,35 +108,85 @@ def getL1cache(a):
       numOfwords = mode[0]
       numOfLines = mode[1]
 
+      offsetnobit = int(math.log2(numOfwords))
+      linenobit = int(math.log2(numOfLines))
+
+      print('++++++= ' , offsetnobit)
+
       offsetMask = numOfwords - 1
       lineMask = numOfLines - 1
       
-      offest = a & offsetMask
-      line = (a >> numOfwords) & lineMask
-      tag = (a >> (numOfwords + numOfLines))
-      print('offest ' , offest)
+      offset = a & offsetMask
+      line = (a >> offsetnobit) & lineMask
+      tag = (a >> (offsetnobit + linenobit))
+      print('offest ' , offset)
       print('line ' , line)
-      if not (L1cache[line][offest + 1] == -1) and (L1cache[line][0] == tag):
-         val = L1cache[line][offest + 1]
+      if (L1cache[line][offset] is not None) and (L1cache[line][offset][1] == tag):
+         val = L1cache[line][offset][0]
    
    return val
+def replaceL1Cache(a , value):
+   print('replaceL1 address ' , a)
+   if mode == dm0 or  mode == dm1 or mode == dm2:
+      numOfwords = mode[0]
+      numOfLines = mode[1]
 
+      offsetnobit = int(math.log2(numOfwords))
+      linenobit = int(math.log2(numOfLines))
+
+      print('++++++= ' , offsetnobit)
+
+      offsetMask = numOfwords - 1
+      lineMask = numOfLines - 1
+      
+      offset = a & offsetMask
+      line = (a >> offsetnobit) & lineMask
+      tag = (a >> (offsetnobit + linenobit))
+      print('offest ' , offset)
+      print('line ' , line)
+      print(tag)
+
+      L1cache[line][offset ] = (value , tag)
+     
 def getL2cache(a):
    val = -1
       
    numOfwords = dmL2[0]
    numOfLines = dmL2[1]
 
+   offsetnobit = int(math.log2(numOfwords))
+   linenobit = int(math.log2(numOfLines))
+
+   print('++++++= ' , offsetnobit)
+
    offsetMask = numOfwords - 1
    lineMask = numOfLines - 1
       
-   offest = a & offsetMask
-   line = (a >> numOfwords) & lineMask
-   tag = (a >> (numOfwords + numOfLines))
-   if not (L2cache[line][offest + 1] == -1) and (L2cache[line][0] == tag):
-      val = L2cache[line][offest + 1]
+   offset = a & offsetMask
+   line = (a >> offsetnobit) & lineMask
+   tag = (a >> (offsetnobit + linenobit))
+   if  (L2cache[line][offset] is not None) and (L2cache[line][offset][1] == tag):
+      val = L2cache[line][offset][0]
    
    return val
+def replaceL2cache(a , value):
+      
+   numOfwords = dmL2[0]
+   numOfLines = dmL2[1]
+
+   offsetnobit = int(math.log2(numOfwords))
+   linenobit = int(math.log2(numOfLines))
+
+   print('++++++= ' , offsetnobit)
+
+   offsetMask = numOfwords - 1
+   lineMask = numOfLines - 1
+      
+   offset = a & offsetMask
+   line = (a >> offsetnobit) & lineMask
+   tag = (a >> (offsetnobit + linenobit))
+
+   L2cache[line][offset] = (value , tag)
 
 
 def getdatamem ( a ):
@@ -139,6 +202,8 @@ def storedatamem(a , v):
     
     mem[ a + reg[ dataseg ] ] = v
     numMemRefs += 1
+    replaceL1Cache(a , v)
+    replaceL2cache(a , v)
 def getregval ( r ):
     # get reg or indirect value
     if ( (r & (1<<numregbits)) == 0 ):               # not indirect
@@ -206,11 +271,14 @@ def updatePredictBranch(ir , guess):
 def initCache():
    if mode == dm0 or  mode == dm1 or mode == dm2:
       for line in range(mode[1]):
-         entry = [-1]  #tag
+         entry = [] 
          for word in range(mode[0]):
-            entry.append(-1)
+            entry.append(None)
          L1cache.append(entry)
    print('++++++++++++++++++cache 1 +++++++++++++=')
+   for line in range(mode[1]):
+      print(L1cache[line])
+def printL1():
    for line in range(mode[1]):
       print(L1cache[line])
    
@@ -375,13 +443,20 @@ while( 1 ):
                             # store return address
         clock += 1
         reg[ reg1 ] = result
+   print('===========================================================')
+   print('===========================================================')
+   print('===========================================================')
+   # time.sleep(.1)
    
 
 print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
-for entry in scoreBoard:
-   print(entry)
-for entry in predictionTable:
-   print(entry , predictionTable[entry])
+# for entry in scoreBoard:
+#    print(entry)
+# for entry in predictionTable:
+#    print(entry , predictionTable[entry])
+
+
+printL1()
 
    # end of instruction loop     
 # end of execution
