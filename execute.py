@@ -27,7 +27,11 @@ scoreBoard = []
 predictionTable = {}
 clock = 1                                            # clock starts ticking
 ic = 0                                               # instruction count
-numMemRefs = 0                                        
+numMemRefs = 0    
+numL1Ref = 0 
+numL1hit = 0
+numL2Ref = 0
+numL2hit = 0                                   
 numcoderefs = 0                                      # number of times instructions read
 numdatarefs = 0                                      # number of times data read
 starttime = time.time()
@@ -61,6 +65,8 @@ def loadmem():                                       # get binary load image
         mem[ curaddr ] = int( token[ 0 ], 0 )                
         curaddr = curaddr = curaddr + 1
 def getdata(a):
+   global numL1hit
+   global numL2hit
    L1hit = False
    L2hit = False
    print('getData address ' , a)
@@ -75,14 +81,18 @@ def getdata(a):
          print('val from mem ' , val)
       else:
          L2hit = True
+         numL2hit +=1
    else:
       L1hit = True
+      numL1hit += 1
    if not L1hit:
       replaceL1Cache(a , val , 'data')   
    #    if not L2hit:
    #       replaceL2cache(a , val)
    return val
 def getcode(a):
+   global numL1hit
+   global numL2hit
    L1hit = False
    L2hit = False
    print('getcode address ' , a)
@@ -97,8 +107,10 @@ def getcode(a):
          print('val from mem ' , val)
       else:
          L2hit = True
+         numL2hit +=1
    else:
       L1hit = True
+      numL1hit += 1
    
    if not L1hit:
       replaceL1Cache(a , val , 'instruction')   
@@ -111,12 +123,18 @@ def getcode(a):
    return val
 
 def getcodemem ( a ):
+    global clock
+    clock+= 25
     global numMemRefs
     # get code memory at this address
     memval = mem[ a + reg[ codeseg ] ]
     numMemRefs += 1
     return ( memval )
 def getL1cache(a , type = ''):
+   global numL1Ref
+   global clock
+   numL1Ref += 1
+   clock += 1
    val = -1
    if mode is dm0 or  mode is dm1 or mode is dm2:
       numOfwords = mode[0]
@@ -293,6 +311,10 @@ def replaceL1Cache(a , value , type = ''):
 
      
 def getL2cache(a):
+   global numL2Ref
+   global clock
+   numL2Ref += 1
+   clock += 4
    val = -1
       
    numOfwords = dmL2[0]
@@ -481,7 +503,7 @@ while( 1 ):
    # print('=========== ' ,codeseg , '========')
    ir = getcode( ip )                            # - fetch
    print('ir: ' , ir)
-   clock += 1
+   # clock += 1
    ip = ip + 1
    opcode = ir >> opcposition                       # - decode
    clock += 1
@@ -530,12 +552,13 @@ while( 1 ):
    
    elif opcodes[ opcode ] [0] == 0:                 #     ? type
       break
-   clock += 1
+   # clock += 1
    if (opcode == 7):                                # get data memory for loads
       memdata = getdata( operand2 )
-      clock+=1
+      # clock+=1
    if (opcode == 8):        
       # memdata = operand1
+      clock+=1
       operand2 = getregval(addr)
 
       # print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
@@ -620,9 +643,18 @@ print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
 # for entry in predictionTable:
 #    print(entry , predictionTable[entry])
 
-
+print('-------------L1InstructionCache----------')
 printL1(L1InstructionCache)
+print('-------------L1DataCache----------')
 printL1(L1DataCache)
+print('-------------Unified L1Cache----------')
+printL1(L1cache)
+print('-------------Unified L2Cache----------')
+printL1(L2cache)
+print('L1 cache hit rate:' , numL1hit/numL1Ref*100 , '%')
+print('L2 cache hit rate:' , numL2hit/numL2Ref*100 , '%')
+print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
+
 # printL2()
    # end of instruction loop     
 # end of execution
