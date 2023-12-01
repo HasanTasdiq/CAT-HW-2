@@ -13,6 +13,7 @@ nummask = (2**(wordsize))-1
 opcposition = wordsize - (opcodesize + 1)            # shift value to position opcode
 reg1position = opcposition - (numregbits +1)            # first register position
 reg2position = reg1position - (numregbits +1)
+reg3position = reg2position - (numregbits +1)
 memaddrimmedposition = reg2position                  # mem address or immediate same place as reg2
 realmemsize = memloadsize * 1                        # this is memory size, should be (much) bigger than a program
 #memory management regs
@@ -40,14 +41,15 @@ L1cache = []
 L1DataCache = []
 L1InstructionCache = []
 dmL2 = (8 , 8)
-L2cache = [[None] * dmL2[0]] * dmL2[0]                             # 8*8 L2 cache with tag
+# L2cache = [[None] * dmL2[0]] * dmL2[0] 
+L2cache = []                            # 8*8 L2 cache with tag
 dm0 = [2 , 4]
 dm1 = [4 , 4]
 dm2 = [2 , 8]
 sp0 = [(2 , 2) , (2 , 2)]
 sp1 = [(4 , 2) , (4 , 4)]
 sa0 = [2 , 8]
-mode = dm2
+mode = sa0
 
 print('comp ee ' , dm2 is sa0)
 def startexechere ( p ):
@@ -114,8 +116,8 @@ def getcode(a):
    
    if not L1hit:
       replaceL1Cache(a , val , 'instruction')   
-      # if not L2hit:
-      #    replaceL2cache(a , val)
+      if not L2hit:
+         replaceL2cache(a , val)
 
    
 
@@ -351,9 +353,9 @@ def replaceL2cache(a , value):
    offset = a & offsetMask
    line = (a >> offsetnobit) & lineMask
    tag = (a >> (offsetnobit + linenobit))
-   print('offest ' , offset)
-   print('line ' , line)
-   print('tag' , tag)
+   print('replaceL2cache offest ' , offset)
+   print('replaceL2cache line ' , line)
+   print('replaceL2cache tag' , tag)
    # printL2()
    L2cache[line][offset] = (value , tag)
    # printL2()
@@ -445,7 +447,7 @@ def initCache():
          for word in range(mode[0]):
             entry.append(None)
          L1cache.append(entry)
-   if mode is sp0 or mode is sp1:
+   elif mode is sp0 or mode is sp1:
       for line in range(mode[0][1]):
          entry = [] 
          for word in range(mode[0][0]):
@@ -457,7 +459,11 @@ def initCache():
             entry.append(None)
          L1DataCache.append(entry)
 
-   print('++++++++++++++++++cache 1 +++++++++++++=')
+   for line in range(dmL2[1]):
+      entry = [] 
+      for word in range(dmL2[0]):
+         entry.append(None)
+      L2cache.append(entry)
    # for line in range(mode[1]):
    #    print(L1cache[line])
 def printL1(cache=L1cache):
@@ -488,7 +494,7 @@ def trap ( t ):
    #  return ( rv, rl )
 # opcode type (1 reg, 2 reg, reg+addr, immed), mnemonic  
 opcodes = { 1: (2, 'add'), 2: ( 2, 'sub'), 
-            3: (1, 'dec'), 4: ( 1, 'inc' ),
+            3: (1, 'dec'), 4: ( 1, 'inc' ), 5:(5 , 'addvector'),
             7: (3, 'ld'),  8: (3, 'st'), 9: (3, 'ldi'),
            12: (3, 'bnz'), 13: (3, 'brl'),
            14: (1, 'ret'),
@@ -506,13 +512,18 @@ while( 1 ):
    # clock += 1
    ip = ip + 1
    opcode = ir >> opcposition                       # - decode
+
    clock += 1
    reg1   = (ir >> reg1position) & regmask
    reg2   = (ir >> reg2position) & regmask
+   reg3   = (ir >> reg3position) & regmask
    addr   = (ir) & addmask
    ic = ic + 1
-                                                    # - operand fetch
-   print('ir' , ir , 'ip' , ip , 'opcode' , opcode , 'reg1' , reg1 , 'reg2' , reg2 , 'addr' , addr , 'ic' , ic)  
+   # if opcode == 5:
+   #    print('=== found ')
+   #    print('ir' , ir , 'ip' , ip , 'opcode' , opcode , 'reg1' , reg1 , 'reg2' , reg2 ,'reg3' , reg3  ,  'addr' , addr , 'ic' , ic)  
+   #    exit()                                             # - operand fetch
+   print('ir' , ir , 'ip' , ip , 'opcode' , opcode , 'reg1' , reg1 , 'reg2' , reg2 ,'reg3' , reg3  ,  'addr' , addr , 'ic' , ic)  
    # if ic %10 ==0:
    #    print('-------10----------------')
    #    trap(0)            
@@ -538,6 +549,26 @@ while( 1 ):
          regEntry[reg2] = 'r'
       else:
          regEntry[reg2 - numregs] = 'r'
+   elif opcodes[ opcode ] [0] == 5:  
+      operand1 = getregval( reg1 )                  #       fetch operands
+      regEntry[reg1] = 'w'
+      operand2 = getregval( reg2 )
+      # print('in line 191 ' , reg2)
+      if ( (reg2 & (1<<numregbits)) == 0 ):
+         regEntry[reg2] = 'r'
+      else:
+         regEntry[reg2 - numregs] = 'r'
+      
+      operand3 = getregval( reg3 )
+      # print('in line 191 ' , reg2)
+      if ( (reg3 & (1<<numregbits)) == 0 ):
+         regEntry[reg3] = 'r'
+      else:
+         regEntry[reg3 - numregs] = 'r'
+      
+      print('addvector op decode ' , operand1 , operand2 , operand3)
+      # exit()
+      
 
    elif opcodes[ opcode ] [0] == 3:                 #     ld, st, br type
       operand1 = getregval( reg1 )                  #       fetch operands
@@ -560,6 +591,9 @@ while( 1 ):
       # memdata = operand1
       clock+=1
       operand2 = getregval(addr)
+   
+
+
 
       # print('=====8===' , operand1 , memdata)                        # get data from reg1 for store
    updateScoreBoard(regEntry)
@@ -609,6 +643,15 @@ while( 1 ):
         break
       reg1 = treg
       ip = operand2
+   elif opcode == 5:
+      for i in range(3):
+         memdata1 = getdata(operand2)
+         memdata2 = getdata(operand3)
+         result = memdata1 + memdata2
+         storedatamem( operand1 ,result)
+         operand1 += 1
+         operand2 += 1
+         operand3 += 1
 
    # write back
    if ( (opcode == 1) | (opcode == 2 ) | 
@@ -633,8 +676,8 @@ while( 1 ):
    print('===========================================================')
    print('===========================================================')
    print('===========================================================')
-   printL1(L1cache)
-   # time.sleep(20)
+   printL1(L2cache)
+   # time.sleep(10)
    
 
 print( 'clock=', clock, 'IC=', ic, 'Mem reference=', numMemRefs)
