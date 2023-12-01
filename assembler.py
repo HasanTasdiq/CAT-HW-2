@@ -22,7 +22,7 @@ def regval ( rstr ):                                 # help with reg or indirect
 mem = [0] * memloadsize                              # this is the memory load executable
 # instruction mnemonic, type: (1 reg, 2 reg, reg+addr, immed, pseudoop), opcode  
 opcodes = {'add': (2, 1),'sub': (2, 2),                # ie, "add" is a type 2 instruction, opcode = 1
-           'addvector':(5 , 5),
+           'addvector':(5 , 5), 'sumvector': (6 , 6),
            'dec': ( 1, 3), 'inc': ( 1, 4 ), 
            'ld': (3, 7), 'st': (3, 8), 'ldi': (3, 9),
            'bnz': (3, 12), 'brl': (3, 13),
@@ -93,6 +93,8 @@ for line in infile.readlines():           # read our asm code
    elif instype == 5:
       print('inst 5 ' , tokens[3])
       memdata = memdata + ( regval( tokens[1] ) << reg1position ) + ( regval( tokens[2] ) << reg2position) + ( regval( tokens[3] ) << reg3position)
+   elif instype == 6:
+      memdata = memdata + ( regval( tokens[1] ) << reg1position ) + ( regval( tokens[2] ) << reg2position)
    mem[ curaddr ] = memdata                                # memory image at the current location
    curaddr = curaddr + 1
 outfile = open("a.out", 'w')                               # done, write it out

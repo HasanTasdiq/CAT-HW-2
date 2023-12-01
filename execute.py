@@ -494,7 +494,7 @@ def trap ( t ):
    #  return ( rv, rl )
 # opcode type (1 reg, 2 reg, reg+addr, immed), mnemonic  
 opcodes = { 1: (2, 'add'), 2: ( 2, 'sub'), 
-            3: (1, 'dec'), 4: ( 1, 'inc' ), 5:(5 , 'addvector'),
+            3: (1, 'dec'), 4: ( 1, 'inc' ), 5:(5 , 'addvector'), 6:(6 , 'sumvector'),
             7: (3, 'ld'),  8: (3, 'st'), 9: (3, 'ldi'),
            12: (3, 'bnz'), 13: (3, 'brl'),
            14: (1, 'ret'),
@@ -569,7 +569,20 @@ while( 1 ):
       print('addvector op decode ' , operand1 , operand2 , operand3)
       # exit()
       
-
+   elif opcodes[ opcode ] [0] == 6:                 #     add, sub type
+      operand1 = getregval( reg1 )                  #       fetch operands
+      if ( (reg1 & (1<<numregbits)) == 0 ):
+         regEntry[reg1] = 'w'
+      else:
+         regEntry[reg1 - numregs] = 'w'
+      operand2 = getregval( reg2 )
+      # print('in line 191 ' , reg2)
+      if ( (reg2 & (1<<numregbits)) == 0 ):
+         regEntry[reg2] = 'r'
+      else:
+         regEntry[reg2 - numregs] = 'r'
+      print('opcode 6 ' , operand1 , operand2)
+      # exit()
    elif opcodes[ opcode ] [0] == 3:                 #     ld, st, br type
       operand1 = getregval( reg1 )                  #       fetch operands
       operand2 = addr                     
@@ -652,6 +665,12 @@ while( 1 ):
          operand1 += 1
          operand2 += 1
          operand3 += 1
+   elif opcode == 6:
+      result = 0 
+      for i in range(3):
+         result += getdata(operand2)
+         operand2 += 1
+      
 
    # write back
    if ( (opcode == 1) | (opcode == 2 ) | 
@@ -663,6 +682,9 @@ while( 1 ):
         clock += 1
    elif (opcode == 8):
       storedatamem( operand2 ,result)
+      clock += 1
+   elif (opcode == 6):
+      storedatamem( operand1 ,result)
       clock += 1
 
    
